@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>규칙찾기 탐험가</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#eaf7ff;color:#234}
+.container{max-width:900px;margin:auto;padding:20px}
+.card{background:white;border-radius:20px;padding:24px;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+h1{text-align:center}
+.progress{display:flex;gap:6px;margin:15px 0}
+.step{flex:1;height:16px;border-radius:8px;background:#d9eaf2}
+.step.done{background:#7ec8ff}
+.question{font-size:2rem;text-align:center;margin:30px 0;min-height:80px}
+.options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{padding:16px;border:none;border-radius:12px;font-size:1.1rem;cursor:pointer}
+.option{background:#f3fbff}
+.option:hover{background:#dff4ff}
+.primary{background:#7ec8ff}
+.center{text-align:center}
+#feedback{margin-top:20px;font-size:1.2rem;text-align:center;font-weight:bold}
+.hidden{display:none}
+.badge{font-size:2rem}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="card">
+<div id="startScreen">
+<h1>규칙찾기 탐험가</h1>
+<p class="center">10문제 챌린지</p>
+<div class="center"><button class="primary" onclick="startGame()">게임 시작</button></div>
+</div>
+
+<div id="gameScreen" class="hidden">
+<div id="progress" class="progress"></div>
+<div id="qInfo" class="center"></div>
+<div id="question" class="question"></div>
+<div id="options" class="options"></div>
+<div id="feedback"></div>
+</div>
+
+<div id="resultScreen" class="hidden center">
+<h1>챌린지 완료!</h1>
+<div id="scoreText"></div>
+<div id="badge" class="badge"></div>
+<br>
+<button class="primary" onclick="location.reload()">다시하기</button>
+</div>
+</div>
+</div>
+
+<script>
+let questions=[];
+let current=0;
+let score=0;
+let wrongCount=0;
+
+function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function makeNumberQuestion(){
+ const start=rand(1,20);
+ const step=[1,2,3,5][rand(0,3)];
+ const seq=[start,start+step,start+step*2];
+ const answer=start+step*3;
+ let opts=[answer,answer+step,answer-step,answer+step*2];
+ opts=[...new Set(opts)];
+ while(opts.length<4) opts.push(answer+rand(4,12));
+ opts=opts.slice(0,4).sort(()=>Math.random()-0.5);
+ return {
+   q:`${seq[0]} , ${seq[1]} , ${seq[2]} , ?`,
+   answer,
+   options:opts,
+   hint1:"수가 일정하게 변하고 있어요.",
+   hint2:`매번 ${step}씩 ${step>0?'늘어나요':'변해요'}.`
+ };
+}
+
+function makePatternQuestion(){
+ const a=["🔵","🔴"];
+ const answer=a[0];
+ return {
+   q:`${a[0]} ${a[1]} ${a[0]} ${a[1]} ?`,
+   answer,
+   options:["🔵","🔴","🟢","🟡"].sort(()=>Math.random()-0.5),
+   hint1:"색이 반복되고 있어요.",
+   hint2:"두 가지 색이 번갈아 나와요."
+ };
+}
+
+function makeShapeQuestion(){
+ return {
+   q:"■<br>■■<br>■■■<br>?",
+   answer:"■■■■",
+   options:["■■","■■■","■■■■","■■■■■"].sort(()=>Math.random()-0.5),
+   hint1:"도형 수가 늘어나고 있어요.",
+   hint2:"한 줄씩 1개 늘어나요."
+ };
+}
+
+function generateQuestions(){
+ for(let i=0;i<6;i++) questions.push(makeNumberQuestion());
+ for(let i=0;i<2;i++) questions.push(makeShapeQuestion());
+ for(let i=0;i<2;i++) questions.push(makePatternQuestion());
+ questions.sort(()=>Math.random()-0.5);
+}
+
+function startGame(){
+ generateQuestions();
+ document.getElementById('startScreen').classList.add('hidden');
+ document.getElementById('gameScreen').classList.remove('hidden');
+ renderQuestion();
+}
+
+function renderProgress(){
+ const p=document.getElementById('progress');
+ p.innerHTML='';
+ for(let i=0;i<10;i++){
+   const d=document.createElement('div');
+   d.className='step'+(i<current?' done':'');
+   p.appendChild(d);
+ }
+}
+
+function renderQuestion(){
+ wrongCount=0;
+ renderProgress();
+ const q=questions[current];
+ document.getElementById('qInfo').innerHTML=`문제 ${current+1} / 10`;
+ document.getElementById('question').innerHTML=q.q;
+ document.getElementById('feedback').innerHTML='';
+
+ const optDiv=document.getElementById('options');
+ optDiv.innerHTML='';
+ q.options.forEach(o=>{
+   const b=document.createElement('button');
+   b.className='option';
+   b.innerHTML=o;
+   b.onclick=()=>checkAnswer(o);
+   optDiv.appendChild(b);
+ });
+}
+
+function checkAnswer(choice){
+ const q=questions[current];
+ const fb=document.getElementById('feedback');
+
+ if(choice===q.answer){
+   score++;
+   fb.innerHTML="🎉 정답!";
+   setTimeout(()=>{
+      current++;
+      if(current>=10) showResult();
+      else renderQuestion();
+   },1000);
+ }else{
+   wrongCount++;
+   if(wrongCount===1){
+      fb.innerHTML="🔍 다시 살펴보세요!<br>💡 "+q.hint1;
+   }else{
+      fb.innerHTML="🔍 다시 살펴보세요!<br>💡 "+q.hint2;
+   }
+ }
+}
+
+function showResult(){
+ document.getElementById('gameScreen').classList.add('hidden');
+ document.getElementById('resultScreen').classList.remove('hidden');
+
+ let badge="🌱 규칙 연습생";
+ if(score===10) badge="🏆 규칙 박사";
+ else if(score>=8) badge="🥇 규칙 마스터";
+ else if(score>=6) badge="🥈 규칙 탐정";
+
+ document.getElementById('scoreText').innerHTML=`정답 ${score} / 10`;
+ document.getElementById('badge').innerHTML=badge;
+}
+</script>
+</body>
+</html>
